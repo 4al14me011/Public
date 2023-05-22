@@ -1,0 +1,27 @@
+Function sheetExists(in_wkb As Workbook, in_ws As String) As Boolean
+    
+    On Error GoTo endline
+    
+    Dim wsExists As Worksheet
+    Set wsExists = in_wkb.Worksheets(in_ws)
+    
+    If wsExists Is Nothing Then
+        sheetExists = False
+    Else
+        sheetExists = True
+    End If
+    
+endline:
+    
+End Function
+
+Function findTxt(in_ws As Worksheet, in_Text As String) As Range
+    
+    On Error GoTo endline
+    
+    Dim rgFound As Range
+    Set findTxt = in_ws.UsedRange.Find(in_Text, LookIn:=xlValues, Lookat:=xlWhole, SearchOrder:=xlRows)
+       
+endline:
+    
+End Function
