@@ -1,0 +1,159 @@
+Sub Main()
+
+On Error GoTo endline:
+    Dim wkbMacro As Workbook, wkbWorking As Workbook
+    Dim wsMacro_Config As Worksheet, wsMacro_temp As Worksheet, wsWorking As Worksheet
+    Dim strRetVal As String
+    Dim dict As Scripting.Dictionary
+    Dim temp_rgFound As Range
+    
+    Set dict = New Scripting.Dictionary
+    
+    Set wkbMacro = ThisWorkbook
+    Set wsMacro_Config = ThisWorkbook.Worksheets("ConfigFile")
+    
+    With wsMacro_Config
+        For Each cellAdd In .Range("A2:A" & .UsedRange.Rows.Count)
+            dict.Add cellAdd.Value, cellAdd.Offset(0, 1).Value
+        Next cellAdd
+    End With
+    
+    If sheetExists(wkbMacro, "temp") Then
+        Set wsMacro_temp = ThisWorkbook.Worksheets("temp")
+    Else
+        strRetVal = "Sheet temp doesnot exists"
+        GoTo endline
+    End If
+    
+    'activate the working sheet
+    Set wkbWorking = Workbooks.Open(dict("FilePath"))
+    Set wsWorking = wkbWorking.Sheets(1)
+    wsWorking.Activate
+    
+    
+    'delete unwanted top rows
+    wsWorking.Range("A1").EntireRow.Delete
+    wsWorking.Range("A1").EntireRow.Delete
+    
+    
+    'search for Request type colhdr
+    Set temp_rgFound = findTxt(wsWorking, dict("FilterColName"))
+    If temp_rgFound Is Nothing Then
+        GoTo endline
+    End If
+    
+    'create a temporary workbook
+    Dim wkbTemp As Workbook
+    Dim wsTemp As Worksheet
+    Dim dateCol As Range, timeCol As Range
+    
+    wsWorking.Range("A1").AutoFilter Field:=temp_rgFound.Column, _
+        Criteria1:=Array(Split(dict("FilterColValues"), ",")), _
+        Operator:=xlFilterValues
+    
+    Set wkbTemp = Workbooks.Add
+    Set wsTemp = wkbTemp.Sheets(1)
+    wsWorking.UsedRange.SpecialCells(xlCellTypeVisible).Copy wsTemp.Range("A1")
+    
+    Set dateCol = wsTemp.Cells(1, wsTemp.UsedRange.Columns.Count + 1)
+    dateCol.Value = "Date"
+    Set timeCol = wsTemp.Cells(1, wsTemp.UsedRange.Columns.Count + 1)
+    timeCol.Value = "Time"
+    
+    'Range(dateCol.Offset(1, 0).Address, dateCol.Offset(dateCol.Count, 0).Address).Formula = "=M2+(-4.5/24)"
+    'Range(dateCol.Offset(1, 0).Address, dateCol.Offset(dateCol.Count, 0).Address).Formula = "=text(p2," & Chr(34) & "hh" & Chr(34) & ")"
+    
+
+'======== creating pivot table ========
+    Dim PTable As PivotTable
+    Dim PCache As PivotCache
+    Dim PRange As Range
+    Dim PSheet As Worksheet, wsP_Final As Worksheet
+    
+    wsTemp.Activate
+    Worksheets.Add After:=wsTemp
+    ActiveSheet.Name = "Final Pivot Sheet"
+    Set wsP_Final = wkbTemp.Worksheets("Final Pivot Sheet")
+    
+    wsTemp.Activate
+    Worksheets.Add After:=wsTemp
+    ActiveSheet.Name = "Pivot Sheet"
+    Set PSheet = wkbTemp.Worksheets("Pivot Sheet")
+    
+    'Set the pivot table data range
+    wsTemp.Activate
+    wsTemp.Range("A1").Select
+    Set PRange = ActiveCell.CurrentRegion
+    
+    'Set pivot cahe
+    Set PCache = wkbTemp.PivotCaches.Create(xlDatabase, SourceData:=PRange)
+    
+    'Create blank pivot table
+    Set PTable = PCache.CreatePivotTable(TableDestination:=PSheet.Cells(1, 1), TableName:="Report_1")
+    
+    'Insert country to Row Filed
+    With PSheet.PivotTables("Report_1").PivotFields("Resolved Operator")
+        .Orientation = xlRowField
+        .Position = 1
+    End With
+    
+    'Insert Time to Column Filed & position 1
+    With PSheet.PivotTables("Report_1").PivotFields("Time")
+        .Orientation = xlColumnField
+        .Position = 1
+    End With
+    
+    'Insert Sales Time to the data field
+    With PSheet.PivotTables("Report_1").PivotFields("Time")
+        .Orientation = xlDataField
+        .Position = 1
+    End With
+        
+    PSheet.PivotTables("Report_1").PivotFields("Resolved operator").AutoSort _
+        xlDescending, "Count of Time", PSheet.PivotTables("Report_1"). _
+        PivotColumnAxis.PivotLines(3), 1
+    
+    'Find Last used row and column in data sheet
+    LR = PSheet.Cells(Rows.Count, 1).End(xlUp).Row
+    LC = PSheet.Cells(2, Columns.Count).End(xlToLeft).Column
+    PSheet.Range(Cells(2, 1), Cells(LR, LC)).Copy wsP_Final.Range("A1")
+    
+    
+    PSheet.Cells.Delete
+    
+    Set PCache = Nothing
+    'Set pivot cahe
+    Set PCache = wkbTemp.PivotCaches.Create(xlDatabase, SourceData:=PRange)
+    
+    'Create blank pivot table
+    Set PTable = PCache.CreatePivotTable(TableDestination:=PSheet.Cells(1, 1), TableName:="Report_1")
+    
+    'Insert country to Row Filed
+    With PSheet.PivotTables("Report_1").PivotFields("Resolved Operator")
+        .Orientation = xlRowField
+        .Position = 1
+    End With
+    
+    'Insert Time to Column Filed & position 1
+    With PSheet.PivotTables("Report_1").PivotFields("Case Status")
+        .Orientation = xlColumnField
+        .Position = 1
+    End With
+    
+    'Insert Sales Time to the data field
+    With PSheet.PivotTables("Report_1").PivotFields("Case Status")
+        .Orientation = xlDataField
+        .Position = 1
+    End With
+           
+    PSheet.PivotTables("Report_1").PivotFields("Resolved operator").AutoSort _
+        xlDescending, "Count of Time", PSheet.PivotTables("Report_1"). _
+        PivotColumnAxis.PivotLines(3), 1
+    
+    'Find Last used row and column in data sheet
+    LR = PSheet.Cells(Rows.Count, 1).End(xlUp).Row
+    LC = PSheet.Cells(2, Columns.Count).End(xlToLeft).Column
+    PSheet.Range(Cells(2, 1), Cells(LR, LC)).Copy wsP_Final.Range(Cells(1, wsP_Final.UsedRange.Columns.Count + 3).Address)
+
+endline:
+End Sub
