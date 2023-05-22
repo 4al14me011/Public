@@ -42,6 +42,15 @@ On Error GoTo endline:
         GoTo endline
     End If
     
+    wsWorking.Range("A1").AutoFilter Field:=temp_rgFound.Column, _
+        Criteria1:="", Operator:=xlFilterValues
+        
+    If wsWorking.Range("A1:A" & wsWorking.UsedRange.Rows.Count).SpecialCells(xlCellTypeVisible).Cells.Count > 1 Then
+        wsWorking.Range("A1:A" & wsWorking.UsedRange.Rows.Count).SpecialCells(xlCellTypeVisible).Value = "Cancel"
+    End If
+    
+    wsWorking.AutoFilterMode = False
+    
     'create a temporary workbook
     Dim wkbTemp As Workbook
     Dim wsTemp As Worksheet
